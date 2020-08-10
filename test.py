@@ -200,17 +200,18 @@ def benchmark(cnt=20, depth=3):
 
 def selfplay(secs=1):
     """ Start a game sunfish vs. sunfish """
-    pos = tools.parseFEN(tools.FEN_INITIAL)
+    pos = sunfish.Position(fen=tools.FEN_INITIAL)
+    print(f"At the beginning, the root_color is {pos.root_color}")
     for d in range(200):
         # Always print the board from the same direction
-        board = pos.board if d % 2 == 0 else pos.rotate().board
-        print(' '.join(board))
+        sunfish.print_pos(pos if pos.get_color() else pos.rotate())
         m, _, _ = tools.search(sunfish.Searcher(), pos, secs)
         if m is None:
             print("Game over")
             break
         print("\nmove", tools.mrender(pos, m))
         pos = pos.move(m)
+        print(f"after the move, root_color is {pos.root_color}")
 
 def self_arena(version1, version2, games, secs, plus):
     print('Playing {} games of {} vs. {} at {} secs/game + {} secs/move'
@@ -645,5 +646,5 @@ if sys.version_info < (3,5):
             file.flush()
 
 if __name__ == '__main__':
-    main()
-
+    #main()
+    selfplay()

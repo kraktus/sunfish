@@ -14,7 +14,7 @@ import sunfish
 # as xboard support, we have to.
 WHITE, BLACK = range(2)
 
-FEN_INITIAL = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+FEN_INITIAL = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1'
 
 
 def search(searcher, pos, secs, history=()):

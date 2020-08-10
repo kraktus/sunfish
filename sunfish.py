@@ -1,5 +1,5 @@
-#!/usr/bin/env pypy
-# -*- coding: utf-8 -*-
+#!/usr/local/bin/python3
+#coding: utf-8
 
 from __future__ import print_function
 import re, sys, time
@@ -116,20 +116,72 @@ QS_LIMIT = 219
 EVAL_ROUGHNESS = 13
 DRAW_TEST = True
 
+COlORS = [BLACK, WHITE] = [False, True]
+
 
 ###############################################################################
 # Chess logic
 ###############################################################################
 
-class Position(namedtuple('Position', 'board score wc bc ep kp')):
-    """ A state of a chess game
-    board -- a 120 char representation of the board
-    score -- the board evaluation
-    wc -- the castling rights, [west/queen side, east/king side]
-    bc -- the opponent castling rights, [west/king side, east/queen side]
-    ep - the en passant square
-    kp - the king passant square
-    """
+class Position:
+
+    def __init__(self, board = initial, 
+                score = 0, 
+                wc = (True, True), 
+                bc = (True, True), 
+                ep = 0, 
+                kp = 0, 
+                fen = None, 
+                root_color = None):
+        """ A state of a chess game
+        fen -- the starting position of the game, which
+        OR:
+        board -- a 120 char representation of the board,
+        score -- the board evaluation, set by fen
+        wc -- the castling rights, [west/queen side, east/king side]
+        bc -- the opponent castling rights, [west/king side, east/queen side]
+        ep - the en passant square
+        kp - the king passant square
+        root_color -- color of the player which moves first
+       """
+        if fen is not None:
+            board, score, wc, bc, ep, kp = self.parseFEN(fen)
+            if " b " in fen:
+                board = board[::-1].swapcase()
+                score *= -1
+                wc, bc = bc, wc
+                ep = 119-ep if ep else 0
+
+        self.board = board
+        self.score = score
+        self.wc = wc
+        self.bc = bc
+        self.ep = ep
+        self.kp = kp
+        if root_color is None:
+            self.root_color = self.get_color()
+        else:
+            self.root_color = root_color
+
+    def get_color(self):
+        ''' A slightly hacky way to to get the color from a sunfish position '''
+        res = BLACK if self.board.startswith('\n') else WHITE
+        #print(f"get_color works? {res}")
+        return res
+
+    def parseFEN(self, fen):
+        """ Parses a string in Forsyth-Edwards Notation, return args needed to set a Position"""
+        board, color, castling, enpas, _hclock, _fclock = fen.split()
+        board = re.sub(r'\d', (lambda m: '.'*int(m.group(0))), board)
+        board = list(21*' ' + '  '.join(board.split('/')) + 21*' ')
+        board[9::10] = ['\n']*12
+        board = ''.join(board)
+        wc = ('Q' in castling, 'K' in castling)
+        bc = ('k' in castling, 'q' in castling)
+        ep = parse(enpas) if enpas != '-' else 0
+        score = sum(pst[p][i] for i,p in enumerate(board) if p.isupper())
+        score -= sum(pst[p.upper()][119-i] for i,p in enumerate(board) if p.islower())
+        return board, score, wc, bc, ep, 0
 
     def gen_moves(self):
         # For each of our pieces, iterate through each possible 'ray' of moves,
@@ -156,17 +208,18 @@ class Position(namedtuple('Position', 'board score wc bc ep kp')):
                     if i == H1 and self.board[j+W] == 'K' and self.wc[1]: yield (j+W, j+E)
 
     def rotate(self):
-        ''' Rotates the board, preserving enpassant '''
+        ''' Rotates the board, preserving enpassant and root_color '''
         return Position(
             self.board[::-1].swapcase(), -self.score, self.bc, self.wc,
             119-self.ep if self.ep else 0,
-            119-self.kp if self.kp else 0)
+            119-self.kp if self.kp else 0,
+            root_color = self.root_color)
 
     def nullmove(self):
         ''' Like rotate, but clears ep and kp '''
         return Position(
             self.board[::-1].swapcase(), -self.score,
-            self.bc, self.wc, 0, 0)
+            self.bc, self.wc, 0, 0, root_color = self.root_color)
 
     def move(self, move):
         i, j = move
@@ -200,7 +253,7 @@ class Position(namedtuple('Position', 'board score wc bc ep kp')):
             if j == self.ep:
                 board = put(board, j+S, '.')
         # We rotate the returned position, so it's ready for the next player
-        return Position(board, score, wc, bc, ep, kp).rotate()
+        return Position(board, score, wc, bc, ep, kp, root_color=self.root_color).rotate()
 
     def value(self, move):
         i, j = move
@@ -395,8 +448,15 @@ def render(i):
 
 def print_pos(pos):
     print()
-    uni_pieces = {'R':'♜', 'N':'♞', 'B':'♝', 'Q':'♛', 'K':'♚', 'P':'♟',
-                  'r':'♖', 'n':'♘', 'b':'♗', 'q':'♕', 'k':'♔', 'p':'♙', '.':'·'}
+    uni_pieces = {
+    "R": "♖", "r": "♜",
+    "N": "♘", "n": "♞",
+    "B": "♗", "b": "♝",
+    "Q": "♕", "q": "♛",
+    "K": "♔", "k": "♚",
+    "P": "♙", "p": "♟",
+    '.':'·'
+    }
     for i, row in enumerate(pos.board.split()):
         print(' ', 8-i, ' '.join(uni_pieces.get(p, p) for p in row))
     print('    a b c d e f g h \n\n')
