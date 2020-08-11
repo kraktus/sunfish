@@ -74,6 +74,9 @@ for k, table in pst.items():
 # Our board is represented as a 120 character string. The padding allows for
 # fast detection of moves that don't stay within the board.
 A1, H1, A8, H8 = 91, 98, 21, 28
+
+FEN_INITIAL = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+
 initial = (
     '         \n'  #   0 -  9
     '         \n'  #  10 - 19
@@ -278,6 +281,11 @@ class Position:
                 score += pst['P'][119-(j+S)]
         return score
 
+    def is_dead(self):
+        # If we just checked for opponent moves capturing the king, we would miss
+        # captures in case of illegal castling.
+        return any(self.value(m) >= MATE_LOWER for m in self.gen_moves())
+
 ###############################################################################
 # Search logic
 ###############################################################################
@@ -365,7 +373,10 @@ class Searcher:
             best = max(best, score)
             if best >= gamma:
                 # Clear before setting, so we always have a value
-                if len(self.tp_move) > TABLE_SIZE: self.tp_move.clear()
+                if len(self.tp_move) > TABLE_SIZE: 
+                    self.tp_move.clear()
+                    print("OOF TOO MUCH")
+                #print(self.tp_move)
                 # Save the move for pv construction and killer heuristic
                 self.tp_move[pos] = move
                 break
@@ -381,9 +392,8 @@ class Searcher:
         # but only if depth == 1, so that's probably fair enough.
         # (Btw, at depth 1 we can also mate without realizing.)
         if best < gamma and best < 0 and depth > 0:
-            is_dead = lambda pos: any(pos.value(m) >= MATE_LOWER for m in pos.gen_moves())
-            if all(is_dead(pos.move(m)) for m in pos.gen_moves()):
-                in_check = is_dead(pos.nullmove())
+            if all(pos.move(m).is_dead() for m in pos.gen_moves()):
+                in_check = pos.nullmove().is_dead()
                 best = -MATE_UPPER if in_check else 0
 
         # Clear before setting, so we always have a value
@@ -427,14 +437,34 @@ class Searcher:
             yield depth, self.tp_move.get(pos), self.tp_score.get((pos, depth, True)).lower
 
 
+    def pv(self, pos, include_scores=True, include_loop=False):
+        res = []
+        seen_pos = set()
+        color = pos.get_color()
+        if include_scores:
+            res.append(str(pos.score))
+        while True:
+            move = self.tp_move.get(pos)
+            print(move)
+            # The tp may have illegal moves, given lower depths don't detect king killing
+            if move is None or pos.move(move).is_dead():
+                break
+            res.append(mrender(pos, move))
+            pos, color = pos.move(move), not color
+            if pos in seen_pos:
+                if include_loop:
+                    res.append('loop')
+                break
+            seen_pos.add(pos)
+            if include_scores:
+                res.append(str(pos.score if color==pos.root_color else -pos.score))
+        print(res)
+        return ' '.join(res)
+
+
 ###############################################################################
 # User interface
 ###############################################################################
-
-# Python 2 compatability
-if sys.version_info[0] == 2:
-    input = raw_input
-
 
 def parse(c):
     fil, rank = ord(c[0]) - ord('a'), int(c[1]) - 1
@@ -444,6 +474,12 @@ def parse(c):
 def render(i):
     rank, fil = divmod(i - A1, 10)
     return chr(fil + ord('a')) + str(-rank + 1)
+
+def mrender(pos, m):
+    # Sunfish always assumes promotion to queen
+    p = 'q' if A8 <= m[1] <= H8 and pos.board[m[0]] == 'P' else ''
+    m = m if pos.get_color() == WHITE else (119-m[0], 119-m[1])
+    return render(m[0]) + render(m[1]) + p
 
 
 def print_pos(pos):
@@ -506,6 +542,20 @@ def main():
         hist.append(hist[-1].move(move))
 
 
+def analyse():
+    pos = Position(fen="k7/1pR2R2/p6r/8/1N6/2K5/3P4/4B3 w - - 0 1")
+    searcher = Searcher()
+    for d in range(1, 20):
+        score = searcher.bound(pos, MATE_LOWER, d, root=True)
+        if score >= MATE_LOWER:
+            #print(tools.pv(searcher, 0, pos))
+            break
+        print('Score at depth {}: {}'.format(d, score))
+    
+    print("Unable to find mate. Only got score = %d" % score)    
+    print(searcher.pv(pos, include_scores=False))
+
+
 if __name__ == '__main__':
-    main()
+    analyse()
 
