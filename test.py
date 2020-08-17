@@ -19,6 +19,7 @@ import chess
 import chess.engine
 import pathlib
 
+#import my_sunfish as sunfish
 import sunfish
 import tools
 
@@ -654,8 +655,12 @@ def test_all_files():
         allmate(f)
         
 
+def hack_test():
+    p = sunfish.Position(sunfish.initial, 0, (True,True), (True,True), 0, 0)
+    print(p.is_dead())
 
 if __name__ == '__main__':
+    print('#'*80)
     #main()
     #selfplay()
     test_all_files()

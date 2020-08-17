@@ -3,6 +3,7 @@ import re
 import time
 import sys
 
+#import my_sunfish as sunfish
 import sunfish
 
 ################################################################################
