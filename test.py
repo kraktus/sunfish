@@ -481,25 +481,26 @@ def quickdraw(f, depth):
         print(tools.pv(searcher, pos, False))
     print('Found {}/{} draws'.format(k,n))
 
-def quickmate(f, min_depth=1):
+def quickmate(path, min_depth=1):
     """ Similar to allmate, but uses the `bound` function directly to only
     search for moves that will win us the game """
-    for line in f:
-        line = line.strip()
-        print(line)
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            print(line)
 
-        pos = tools.parseFEN(line)
-        searcher = sunfish.Searcher()
-        for d in range(min_depth, 99):
-            score = searcher.bound(pos, sunfish.MATE_LOWER, d, root=True)
-            if score >= sunfish.MATE_LOWER:
-                #print(tools.pv(searcher, 0, pos))
-                break
-            print('Score at depth {}: {}'.format(d, score))
-        else:
-            print("Unable to find mate. Only got score = %d" % score)
-            return
-        print(tools.pv(searcher, pos, include_scores=False))
+            pos = tools.parseFEN(line)
+            searcher = sunfish.Searcher()
+            for d in range(min_depth, 99):
+                score = searcher.bound(pos, sunfish.MATE_LOWER, d, root=True)
+                if score >= sunfish.MATE_LOWER:
+                    #print(tools.pv(searcher, 0, pos))
+                    break
+                print('Score at depth {}: {}'.format(d, score))
+            else:
+                print("Unable to find mate. Only got score = %d" % score)
+                return
+            print(tools.pv(searcher, pos, include_scores=False))
 
 
 ###############################################################################
@@ -645,6 +646,16 @@ if sys.version_info < (3,5):
             file = kwargs.get('file', sys.stdout)
             file.flush()
 
+def test_all_files():
+    p = pathlib.Path('tests')
+    for i in range(2,5):
+        f = p / f"mate{i}.fen"
+        quickmate(f)
+        allmate(f)
+        
+
+
 if __name__ == '__main__':
     #main()
-    selfplay()
+    #selfplay()
+    test_all_files()

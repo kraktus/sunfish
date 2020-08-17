@@ -1,3 +1,4 @@
+
 #!/usr/local/bin/python3
 #coding: utf-8
 
@@ -5,6 +6,8 @@ from __future__ import print_function
 import re, sys, time
 from itertools import count
 from collections import namedtuple
+
+import pathlib
 
 ###############################################################################
 # Piece-Square tables. Tune these to change sunfish's behaviour
@@ -448,6 +451,7 @@ class Searcher:
             print(move)
             # The tp may have illegal moves, given lower depths don't detect king killing
             if move is None or pos.move(move).is_dead():
+                print("dead")
                 break
             res.append(mrender(pos, move))
             pos, color = pos.move(move), not color
@@ -542,20 +546,37 @@ def main():
         hist.append(hist[-1].move(move))
 
 
-def analyse():
-    pos = Position(fen="k7/1pR2R2/p6r/8/1N6/2K5/3P4/4B3 w - - 0 1")
-    searcher = Searcher()
-    for d in range(1, 20):
-        score = searcher.bound(pos, MATE_LOWER, d, root=True)
-        if score >= MATE_LOWER:
-            #print(tools.pv(searcher, 0, pos))
-            break
-        print('Score at depth {}: {}'.format(d, score))
-    
-    print("Unable to find mate. Only got score = %d" % score)    
-    print(searcher.pv(pos, include_scores=False))
 
+def quickmate(path, min_depth=1):
+    """ Similar to allmate, but uses the `bound` function directly to only
+    search for moves that will win us the game """
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            print(line)
+
+            pos = Position(fen=line)
+            searcher = Searcher()
+            for d in range(min_depth, 99):
+                score = searcher.bound(pos, MATE_LOWER, d, root=True)
+                if score >= MATE_LOWER:
+                    #print(tools.pv(searcher, 0, pos))
+                    print("Mat trouvé")
+                    break
+                print('Score at depth {}: {}'.format(d, score))
+            else:
+                print("Unable to find mate. Only got score = %d" % score)
+                return
+            print(searcher.pv(pos, include_scores=False))
+
+def test_all_files():
+    p = pathlib.Path('tests')
+    for i in range(2,5):
+        f = p / f"mate{i}.fen"
+        quickmate(f)
+        
 
 if __name__ == '__main__':
-    analyse()
+    print("#"*80)
+    test_all_files()
 

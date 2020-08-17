@@ -217,6 +217,7 @@ def pv(searcher, pos, include_scores=True, include_loop=False):
         move = searcher.tp_move.get(pos)
         # The tp may have illegal moves, given lower depths don't detect king killing
         if move is None or can_kill_king(pos.move(move)):
+            print("dead")
             break
         res.append(mrender(pos, move))
         pos, color = pos.move(move), 1-color
