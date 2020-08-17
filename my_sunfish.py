@@ -478,12 +478,8 @@ class Searcher:
             res.append(str(pos.score))
         while True:
             move = self.tp_move.get(pos)
-            print(move)
             # The tp may have illegal moves, given lower depths don't detect king killing
             if move is None or pos.move(move).is_dead():
-                print("dead")
-                print(pos)
-                print("test repr: ", compare_all_repr(self.tp_move, pos))
                 break
             res.append(mrender(pos, move))
             pos, color = pos.move(move), not color
@@ -494,8 +490,6 @@ class Searcher:
             seen_pos.add(pos)
             if include_scores:
                 res.append(str(pos.score if color==pos.root_color else -pos.score))
-        print(res)
-        raise Exception("finished")
         return ' '.join(res)
 
 
@@ -596,21 +590,17 @@ def quickmate(path, min_depth=1):
         for line in f:
             line = line.strip()
             print(line)
-
             pos = Position(fen=line)
             searcher = Searcher()
             for d in range(min_depth, 99):
                 score = searcher.bound(pos, MATE_LOWER, d, root=True)
                 if score >= MATE_LOWER:
                     #print(tools.pv(searcher, 0, pos))
-                    print("Mat found")
                     break
                 print('Score at depth {}: {}'.format(d, score))
             else:
                 print("Unable to find mate. Only got score = %d" % score)
                 return
-            iter_tp_move(searcher.tp_move)
-            print("PV")
             print(searcher.pv(pos, include_scores=False))
 
 def test_all_files():
@@ -618,25 +608,6 @@ def test_all_files():
     for i in range(2,5):
         f = p / f"mate{i}.fen"
         quickmate(f)
-
-def iter_tp_move(tp_move):
-    for pos, move in tp_move.items():
-        if move is not None:
-            print(pos)
-            print(mrender(pos, move))
-
-def compare_all_repr(tp_move, pos):
-    l = []
-    for pos_, move_ in tp_move.items():
-        if pos != pos_ and repr(pos) == repr(pos_):
-            print("When repr are equals, hash are equals?: ", hash(pos_) == hash(pos))
-            if move_ is not None:
-                print("When repr are equals, move is: ", mrender(pos_, move_))
-            else:
-                print("move was None")
-            l.append(pos_)
-    return l != []
-
 
 if __name__ == '__main__':
     print("#"*80)
