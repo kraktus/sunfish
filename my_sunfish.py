@@ -4,7 +4,7 @@
 
 from __future__ import print_function
 import re, sys, time
-from itertools import count
+from itertools import count, compress
 from collections import namedtuple
 
 import pathlib
@@ -188,6 +188,36 @@ class Position:
         score = sum(pst[p][i] for i,p in enumerate(board) if p.isupper())
         score -= sum(pst[p.upper()][119-i] for i,p in enumerate(board) if p.islower())
         return board, score, wc, bc, ep, 0
+
+    def __repr__(self):
+        return(
+            "board=" + renderFEN(self) + "\n"
+        f"score={self.score}" + "\n"
+        f"wc={self.wc}" + "\n"
+        f"bc={self.bc}" + "\n"
+        f"ep={self.ep}" + "\n"
+        f"kp={self.kp}" + "\n"
+        f"root_color={self.root_color}"
+            )
+
+    def __eq__(self, other):
+        return (self.board == other.board and 
+                self.score == other.score and
+                self.wc == other.wc and 
+                self.bc == other.bc and
+                self.ep == other.ep and
+                self.kp == other.kp and
+                self.root_color == other.root_color
+                )
+
+    def __hash__(self):
+        return hash((self.board, 
+                     self.score, 
+                     self.wc, 
+                     self.bc,
+                     self.ep,
+                     self.kp,
+                     self.root_color))
 
     def gen_moves(self):
         # For each of our pieces, iterate through each possible 'ray' of moves,
@@ -452,6 +482,8 @@ class Searcher:
             # The tp may have illegal moves, given lower depths don't detect king killing
             if move is None or pos.move(move).is_dead():
                 print("dead")
+                print(pos)
+                print("test repr: ", compare_all_repr(self.tp_move, pos))
                 break
             res.append(mrender(pos, move))
             pos, color = pos.move(move), not color
@@ -463,6 +495,7 @@ class Searcher:
             if include_scores:
                 res.append(str(pos.score if color==pos.root_color else -pos.score))
         print(res)
+        raise Exception("finished")
         return ' '.join(res)
 
 
@@ -485,6 +518,15 @@ def mrender(pos, m):
     m = m if pos.get_color() == WHITE else (119-m[0], 119-m[1])
     return render(m[0]) + render(m[1]) + p
 
+def renderFEN(pos):
+    color = 'wb'[pos.get_color()] #False = 0, True = 1
+    if pos.get_color() == BLACK:
+        pos = pos.rotate()
+    board = '/'.join(pos.board.split())
+    board = re.sub(r'\.+', (lambda m: str(len(m.group(0)))), board)
+    castling = ''.join(compress('KQkq', pos.wc[::-1]+pos.bc)) or '-'
+    ep = render(pos.ep) if not pos.board[pos.ep].isspace() else '-'
+    return ' '.join((board, color, castling, ep))
 
 def print_pos(pos):
     print()
@@ -561,12 +603,14 @@ def quickmate(path, min_depth=1):
                 score = searcher.bound(pos, MATE_LOWER, d, root=True)
                 if score >= MATE_LOWER:
                     #print(tools.pv(searcher, 0, pos))
-                    print("Mat trouvé")
+                    print("Mat found")
                     break
                 print('Score at depth {}: {}'.format(d, score))
             else:
                 print("Unable to find mate. Only got score = %d" % score)
                 return
+            iter_tp_move(searcher.tp_move)
+            print("PV")
             print(searcher.pv(pos, include_scores=False))
 
 def test_all_files():
@@ -574,7 +618,25 @@ def test_all_files():
     for i in range(2,5):
         f = p / f"mate{i}.fen"
         quickmate(f)
-        
+
+def iter_tp_move(tp_move):
+    for pos, move in tp_move.items():
+        if move is not None:
+            print(pos)
+            print(mrender(pos, move))
+
+def compare_all_repr(tp_move, pos):
+    l = []
+    for pos_, move_ in tp_move.items():
+        if pos != pos_ and repr(pos) == repr(pos_):
+            print("When repr are equals, hash are equals?: ", hash(pos_) == hash(pos))
+            if move_ is not None:
+                print("When repr are equals, move is: ", mrender(pos_, move_))
+            else:
+                print("move was None")
+            l.append(pos_)
+    return l != []
+
 
 if __name__ == '__main__':
     print("#"*80)
