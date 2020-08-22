@@ -338,6 +338,7 @@ class Searcher:
                 s(pos) <= r < gamma    if gamma > s(pos)
                 gamma <= r <= s(pos)   if gamma <= s(pos)"""
         self.nodes += 1
+        helpmate = pos.get_color() == pos.root_color
 
         # Depth <= 0 is QSearch. Here any position is searched as deeply as is needed for
         # calmness, and from this point on there is no difference in behaviour depending on
@@ -401,9 +402,15 @@ class Searcher:
                     yield move, -self.bound(pos.move(move), 1-gamma, depth-1, root=False)
 
         # Run through the moves, shortcutting when possible
-        best = -MATE_UPPER
+        if helpmate:
+            best = MATE_UPPER
+        else:
+            best = -MATE_UPPER
         for move, score in moves():
-            best = max(best, score)
+            if helpmate:
+                best = min(best, score) #helpmate
+            else:
+                best = max(best, score)
             if best >= gamma:
                 # Clear before setting, so we always have a value
                 if len(self.tp_move) > TABLE_SIZE: 
@@ -413,6 +420,7 @@ class Searcher:
                 # Save the move for pv construction and killer heuristic
                 self.tp_move[pos] = move
                 break
+                
 
         # Stalemate checking is a bit tricky: Say we failed low, because
         # we can't (legally) move and so the (real) score is -infty.
@@ -609,7 +617,27 @@ def test_all_files():
         f = p / f"mate{i}.fen"
         quickmate(f)
 
+def show_line_from_start_using_search(time_in_sec = 10):
+    pos = Position(fen=FEN_INITIAL)
+    searcher = Searcher()
+    start = time.time()
+    for _depth, move, score in searcher.search(pos, set()):
+        if time.time() - start > time_in_sec:
+            break
+    print(searcher.pv(pos, include_scores=False))
+    print("depth was: ", _depth)
+    print("score is: ", score)
+
+def show_line_from_start_using_bound(depth = 7):
+    pos = Position(fen=FEN_INITIAL)
+    searcher = Searcher()
+    start = time.time()
+    score = searcher.bound(pos, -MATE_UPPER+1, depth, root=True)
+    print(searcher.pv(pos, include_scores=False))
+    print("time taken: ", time.time() - start)
+    print("score is: ", score)
+
 if __name__ == '__main__':
     print("#"*80)
-    test_all_files()
+    show_line_from_start_using_search()
 
